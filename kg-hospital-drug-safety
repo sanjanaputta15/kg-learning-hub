@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knowledge Graph — Medical Use Case & Learning Checklist</title>
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #f9f8f6;
+    --surface:  #ffffff;
+    --border:   #e4e2db;
+    --border2:  #d0cec6;
+    --text:     #1a1a18;
+    --muted:    #6b6a65;
+    --faint:    #9b9a94;
+    --mono:     'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+    --blue-bg:  #e8f1fb; --blue:    #1a5fa8; --blue-dk: #0c3d6e;
+    --green-bg: #e2f5ee; --green:   #0f6e56; --green-dk:#085041;
+    --amber-bg: #faeeda; --amber:   #854f0b; --amber-dk:#633806;
+    --red-bg:   #fcebeb; --red:     #b02c2c; --red-dk:  #7a1c1c;
+    --purple-bg:#eeedfe; --purple:  #4f46b8; --purple-dk:#342f82;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .site-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 0;
+  }
+  .site-nav {
+    display: flex; gap: 0;
+  }
+  .nav-tab {
+    padding: 1rem 1.25rem;
+    font-size: 13px; font-weight: 500;
+    color: var(--muted);
+    background: none; border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer; white-space: nowrap;
+    transition: color .15s, border-color .15s;
+  }
+  .nav-tab.active { color: var(--text); border-bottom-color: var(--text); }
+  .nav-tab:hover:not(.active) { color: var(--text); }
+  .site-logo {
+    font-size: 13px; font-weight: 600;
+    color: var(--text); margin-right: 2rem;
+    letter-spacing: -.01em; white-space: nowrap;
+  }
+  .page { display: none; max-width: 860px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  .page.active { display: block; }
+
+  /* ── Typography helpers ── */
+  h1 { font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
+  h2 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin: 2rem 0 .75rem; }
+  h3 { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 1.5rem 0 .5rem; }
+  p  { color: var(--muted); margin-bottom: .75rem; }
+
+  /* ── Cards & surfaces ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.25rem;
+    margin-bottom: .75rem;
+  }
+  .card-sm { padding: .875rem 1rem; border-radius: 8px; }
+  .pill {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    padding: 2px 9px; border-radius: 20px;
+    letter-spacing: .02em; text-transform: uppercase;
+  }
+  .tag-rdf    { background: var(--blue-bg);   color: var(--blue-dk); }
+  .tag-owl    { background: var(--red-bg);    color: var(--red-dk); }
+  .tag-onto   { background: var(--amber-bg);  color: var(--amber-dk); }
+  .tag-sparql { background: var(--purple-bg); color: var(--purple-dk); }
+  .tag-demo   { background: var(--green-bg);  color: var(--green-dk); }
+  .tag-concept{ background: #f1efe8; color: var(--muted); }
+
+  /* ── Triples display ── */
+  .triple-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+  .t-s { background: var(--blue-bg);   color: var(--blue-dk);   padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .t-p { background: var(--amber-bg);  color: var(--amber-dk);  padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .t-o { background: var(--green-bg);  color: var(--green-dk);  padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+  .t-arr { color: var(--faint); font-size: 16px; }
+  .t-note { font-size: 11px; color: var(--faint); }
+
+  /* ── Code blocks ── */
+  pre, code {
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  pre {
+    background: #1e1e1e; color: #d4d4d4;
+    border-radius: 8px; padding: 1rem 1.125rem;
+    overflow-x: auto; line-height: 1.75;
+    margin: .75rem 0;
+  }
+  pre .cm { color: #6a9955; }
+  pre .kw { color: #569cd6; }
+  pre .st { color: #ce9178; }
+  pre .va { color: #9cdcfe; }
+
+  /* ── Alerts ── */
+  .alert { border-radius: 8px; padding: .75rem 1rem; font-size: 13px; line-height: 1.6; margin: .75rem 0; }
+  .alert-info    { background: var(--blue-bg);   color: var(--blue-dk);   border-left: 3px solid var(--blue); }
+  .alert-success { background: var(--green-bg);  color: var(--green-dk);  border-left: 3px solid var(--green); }
+  .alert-warn    { background: var(--amber-bg);  color: var(--amber-dk);  border-left: 3px solid var(--amber); }
+  .alert-danger  { background: var(--red-bg);    color: var(--red-dk);    border-left: 3px solid var(--red); }
+
+  /* ── VS grid ── */
+  .vs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin: .75rem 0; }
+  @media(max-width:600px){ .vs-grid { grid-template-columns: 1fr; } }
+
+  /* ── Demo stepper ── */
+  .step-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1rem; }
+  .step-pill {
+    padding: 5px 13px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--border2); background: var(--surface);
+    color: var(--muted); cursor: pointer; transition: all .15s;
+  }
+  .step-pill.active { background: var(--text); color: white; border-color: var(--text); }
+  .demo-card {
+    border-radius: 10px; padding: 1.125rem;
+    border: 1px solid var(--border); min-height: 130px;
+    transition: background .2s;
+  }
+  .demo-card .phase { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .4rem; }
+  .demo-card .desc  { font-size: 13px; line-height: 1.65; margin-bottom: .75rem; }
+  .demo-code { font-family: var(--mono); font-size: 11px; background: rgba(0,0,0,.06); border-radius: 6px; padding: .5rem .75rem; line-height: 1.6; }
+
+  /* ── Checklist ── */
+  .level-tabs { display: grid; grid-template-columns: repeat(3,1fr); gap: .625rem; margin: 1.25rem 0; }
+  .level-tab {
+    padding: .875rem .75rem; border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface); cursor: pointer;
+    text-align: left; transition: all .15s;
+  }
+  .level-tab .lt-label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .level-tab .lt-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .level-tab .lt-prog  { margin-top: 8px; height: 3px; border-radius: 2px; background: var(--border); }
+  .level-tab .lt-fill  { height: 100%; border-radius: 2px; transition: width .3s; }
+  .level-tab.active { border-color: var(--text); }
+
+  .section-block { margin-bottom: 1.25rem; }
+  .section-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: .625rem .875rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px 8px 0 0; cursor: pointer;
+    border-bottom: none;
+  }
+  .section-head .sh-title { font-size: 14px; font-weight: 600; flex: 1; }
+  .section-head .sh-count { font-size: 11px; color: var(--muted); }
+  .section-head .sh-chevron { font-size: 12px; color: var(--faint); transition: transform .2s; }
+  .section-head.open .sh-chevron { transform: rotate(90deg); }
+  .section-items { border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; overflow: hidden; }
+
+  .topic-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: .75rem 1rem;
+    border-top: 1px solid var(--border);
+    cursor: pointer; transition: background .1s;
+  }
+  .topic-row:first-child { border-top: none; }
+  .topic-row:hover { background: var(--bg); }
+  .topic-check {
+    width: 17px; height: 17px; border-radius: 4px;
+    border: 1.5px solid var(--border2);
+    flex-shrink: 0; margin-top: 1px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .topic-check.checked { background: var(--text); border-color: var(--text); }
+  .topic-check svg { display: none; }
+  .topic-check.checked svg { display: block; }
+  .topic-body { flex: 1; }
+  .topic-title { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.4; }
+  .topic-title.checked { color: var(--muted); text-decoration: line-through; }
+  .topic-detail { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.5; display: none; }
+  .topic-row.expanded .topic-detail { display: block; }
+  .topic-tag { margin-left: auto; padding-left: 8px; flex-shrink: 0; }
+
+  .progress-bar-lg { height: 6px; border-radius: 3px; background: var(--border); margin: .5rem 0 1.25rem; }
+  .progress-bar-lg .fill { height: 100%; border-radius: 3px; background: var(--text); transition: width .3s; }
+  .progress-summary { font-size: 13px; color: var(--muted); margin-bottom: 1rem; }
+  .progress-summary strong { color: var(--text); }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: .5rem 1rem; border-radius: 7px;
+    font-size: 13px; font-weight: 500;
+    border: 1px solid var(--border2);
+    background: var(--surface); color: var(--text);
+    cursor: pointer; transition: all .1s; text-decoration: none;
+  }
+  .btn:hover { background: var(--bg); }
+  .btn-primary { background: var(--text); color: white; border-color: var(--text); }
+  .btn-primary:hover { opacity: .88; }
+  .btn-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1rem; }
+
+  /* ── Divider ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+  /* ── Hierarchy ── */
+  .hier-row { display: flex; align-items: center; margin: 5px 0; }
+  .hier-indent { border-left: 1.5px solid var(--border2); margin-left: 10px; padding-left: 12px; }
+  .hier-chip { padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+
+  /* ── Footer ── */
+  footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--faint); border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <span class="site-logo">🧠 KG Learning Hub</span>
+  <nav class="site-nav">
+    <button class="nav-tab active" onclick="showPage('usecase', this)">Medical use case</button>
+    <button class="nav-tab" onclick="showPage('checklist', this)">Learning checklist</button>
+  </nav>
+</header>
+
+<!-- ═══════════════════════════════════════════════════
+     PAGE 1 — MEDICAL USE CASE
+═══════════════════════════════════════════════════ -->
+<div id="page-usecase" class="page active">
+
+  <h1>Knowledge graph — hospital drug safety</h1>
+  <p style="margin-top:.5rem; font-size:15px;">One use case, four concepts. Dr. Smith wants to prescribe Aspirin to Patient John. John is already on Warfarin. Watch every layer activate.</p>
+
+  <hr class="divider">
+
+  <!-- THE PROBLEM -->
+  <h2>The problem — data without connection</h2>
+  <p>A hospital has three systems. None of them talk to each other. A doctor must check all three manually before every prescription — and still might miss a dangerous interaction.</p>
+
+  <div class="vs-grid">
+    <div class="card card-sm alert-danger" style="border:none;">
+      <div style="font-size:12px;font-weight:700;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.04em;">Without knowledge graph</div>
+      <div style="font-size:13px;line-height:1.8;">
+        ✗ 3 separate systems, no connection<br>
+        ✗ Manual lookup — 20 minutes<br>
+        ✗ Easy to miss drug interactions<br>
+        ✗ No automatic alert<br>
+        ✗ Patient history fragmented
+      </div>
+    </div>
+    <div class="card card-sm alert-success" style="border:none;">
+      <div style="font-size:12px;font-weight:700;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.04em;">With knowledge graph</div>
+      <div style="font-size:13px;line-height:1.8;">
+        ✓ One connected graph<br>
+        ✓ Answer in under 1 second<br>
+        ✓ Interactions flagged automatically<br>
+        ✓ OWL rule fires, alert raised<br>
+        ✓ Complete picture, one query
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- RDF -->
+  <h2><span class="pill tag-rdf">RDF</span> &nbsp;Every fact is a triple</h2>
+  <p>Resource Description Framework. Every single fact is written as exactly three parts: Subject → Predicate → Object. No exceptions.</p>
+
+  <div class="alert alert-info">Think of it like short sentences with exactly three words. "Patient → takes → Aspirin." That is one triple. Every fact in the hospital becomes one of these.</div>
+
+  <h3>John's medical facts — written as triples</h3>
+  <div class="card">
+    <div class="triple-row"><span class="t-s">Patient_John</span><span class="t-arr">→</span><span class="t-p">takesMedication</span><span class="t-arr">→</span><span class="t-o">Warfarin</span><span class="t-note">← John is on Warfarin</span></div>
+    <div class="triple-row"><span class="t-s">Patient_John</span><span class="t-arr">→</span><span class="t-p">takesMedication</span><span class="t-arr">→</span><span class="t-o">Aspirin</span><span class="t-note">← also on Aspirin</span></div>
+    <div class="triple-row"><span class="t-s">Warfarin</span><span class="t-arr">→</span><span class="t-p">interactsWith</span><span class="t-arr">→</span><span class="t-o">Aspirin</span><span class="t-note">← dangerous combination</span></div>
+    <div class="triple-row"><span class="t-s">Patient_John</span><span class="t-arr">→</span><span class="t-p">treatedBy</span><span class="t-arr">→</span><span class="t-o">Dr_Smith</span><span class="t-note">← his physician</span></div>
+    <div class="triple-row"><span class="t-s">Patient_John</span><span class="t-arr">→</span><span class="t-p">hasAllergy</span><span class="t-arr">→</span><span class="t-o">Penicillin</span><span class="t-note">← allergy on record</span></div>
+  </div>
+
+<pre><span class="cm"># Turtle format — how you write RDF</span>
+<span class="cm">@prefix : &lt;http://hospital.org/&gt; .</span>
+
+<span class="va">:Patient_John</span>  <span class="kw">a</span>                    <span class="st">:Patient</span> ;
+               <span class="kw">:takesMedication</span>     <span class="st">:Warfarin</span> ;
+               <span class="kw">:takesMedication</span>     <span class="st">:Aspirin</span> ;
+               <span class="kw">:treatedBy</span>           <span class="st">:Dr_Smith</span> ;
+               <span class="kw">:hasAllergy</span>          <span class="st">:Penicillin</span> .
+
+<span class="va">:Warfarin</span>      <span class="kw">:interactsWith</span>       <span class="st">:Aspirin</span> .</pre>
+
+  <hr class="divider">
+
+  <!-- ONTOLOGY -->
+  <h2><span class="pill tag-onto">Ontology</span> &nbsp;Defining what things ARE</h2>
+  <p>An ontology is the rulebook for your domain. It defines what kinds of things exist, what properties they can have, and what relationships are allowed.</p>
+
+  <div class="alert alert-warn">Think of it as a medical dictionary combined with a rulebook. "Aspirin IS a Drug. Drug IS a Substance. A Drug CAN interact-with another Drug." Define it once — every fact in the graph inherits the rules.</div>
+
+  <h3>Hospital class hierarchy</h3>
+  <div class="card">
+    <div class="hier-row"><div class="hier-chip" style="background:var(--blue-bg);color:var(--blue-dk);">MedicalEntity — everything in the hospital</div></div>
+    <div class="hier-indent">
+      <div class="hier-row"><div class="hier-chip" style="background:var(--green-bg);color:var(--green-dk);">Person — has name, DOB, ID</div></div>
+      <div class="hier-indent">
+        <div class="hier-row"><div class="hier-chip" style="background:#f0faf5;color:#085041;">Patient — has conditions, medications, doctors</div></div>
+        <div class="hier-row"><div class="hier-chip" style="background:#f0faf5;color:#085041;">Doctor — has specialty, license, patients</div></div>
+      </div>
+      <div class="hier-row" style="margin-top:6px;"><div class="hier-chip" style="background:var(--amber-bg);color:var(--amber-dk);">Substance — has dosage, composition</div></div>
+      <div class="hier-indent">
+        <div class="hier-row"><div class="hier-chip" style="background:#fdf3e0;color:#633806;">Drug — has interactions, contraindications</div></div>
+        <div class="hier-row"><div class="hier-chip" style="background:#fdf3e0;color:#633806;">Allergy — has severity, trigger</div></div>
+      </div>
+    </div>
+  </div>
+
+<pre><span class="cm"># RDFS / OWL ontology</span>
+<span class="va">:Patient</span>   <span class="kw">rdfs:subClassOf</span>  <span class="st">:Person</span> .
+<span class="va">:Drug</span>      <span class="kw">rdfs:subClassOf</span>  <span class="st">:Substance</span> .
+
+<span class="cm"># interactsWith goes both ways</span>
+<span class="va">:interactsWith</span>  <span class="kw">a</span>              <span class="st">owl:SymmetricProperty</span> ;
+                <span class="kw">rdfs:domain</span>   <span class="st">:Drug</span> ;
+                <span class="kw">rdfs:range</span>    <span class="st">:Drug</span> .
+
+<span class="cm"># A patient has exactly one blood type</span>
+<span class="va">:bloodType</span>  <span class="kw">a</span>  <span class="st">owl:FunctionalProperty</span> .</pre>
+
+  <hr class="divider">
+
+  <!-- OWL -->
+  <h2><span class="pill tag-owl">OWL</span> &nbsp;Rules that think for you</h2>
+  <p>OWL adds logic to your ontology. You write IF/THEN rules. A reasoner applies them automatically to every patient, every drug, every relationship — and generates conclusions you never explicitly stored.</p>
+
+  <div class="alert alert-danger">Think of OWL rules like a senior doctor's standing orders: "IF a patient is taking Drug A AND Drug A interacts with Drug B AND a doctor prescribes Drug B → block the prescription and raise an alert." Write it once. It runs on every patient, forever.</div>
+
+  <h3>Three rules for the hospital</h3>
+  <div class="card" style="margin-bottom:.5rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
+      <span style="font-size:13px;font-weight:600;">Drug interaction alert</span>
+      <span class="pill" style="background:var(--red-bg);color:var(--red-dk);">Fires for John</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.6;">IF patient takes Drug A + Drug A interacts-with Drug B + doctor prescribes Drug B<br><strong style="color:var(--red);">THEN raise DANGER alert → block prescription</strong></div>
+  </div>
+  <div class="card" style="margin-bottom:.5rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
+      <span style="font-size:13px;font-weight:600;">High-risk patient flag</span>
+      <span class="pill" style="background:var(--border);color:var(--muted);">Does not fire</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.6;">IF patient has more than 5 medications + age &gt; 70<br><strong style="color:var(--green);">THEN classify as HighRiskPatient → require pharmacist review</strong></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
+      <span style="font-size:13px;font-weight:600;">Allergy cross-check</span>
+      <span class="pill" style="background:var(--red-bg);color:var(--red-dk);">Fires for John</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.6;">IF patient has allergy to Penicillin + doctor prescribes Amoxicillin (same family)<br><strong style="color:var(--amber);">THEN raise WARNING → Amoxicillin is a penicillin-type drug</strong></div>
+  </div>
+
+<pre><span class="cm"># SWRL-style rule — drug interaction check</span>
+<span class="kw">IF</span>   <span class="va">?patient</span>  <span class="st">:takesMedication</span>  <span class="va">?drugA</span>
+     <span class="va">?drugA</span>    <span class="st">:interactsWith</span>    <span class="va">?drugB</span>
+     <span class="va">?doctor</span>   <span class="st">:prescribes</span>       <span class="va">?drugB</span>
+     <span class="va">?doctor</span>   <span class="st">:treatedBy</span>        <span class="va">?patient</span>
+<span class="kw">THEN</span> CREATE <span class="st">:Alert</span>
+         <span class="st">:severity</span>   <span class="st">"DANGER"</span>
+         <span class="st">:message</span>    <span class="st">"Drug interaction detected"</span>
+         <span class="st">:blocked</span>    <span class="va">?drugB</span></pre>
+
+  <hr class="divider">
+
+  <!-- SPARQL -->
+  <h2><span class="pill tag-sparql">SPARQL</span> &nbsp;Asking the graph questions</h2>
+  <p>SPARQL is the query language for knowledge graphs. You describe the shape of the answer you want — the graph finds everything that matches.</p>
+
+  <div class="card card-sm" style="margin-bottom:.5rem;">
+    <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:.35rem;">Query 1 — find dangerous combinations for John</div>
+<pre style="margin:0;">SELECT <span class="va">?drug ?interaction</span> WHERE {
+  <span class="st">:Patient_John</span>  <span class="kw">:takesMedication</span>  <span class="va">?drug</span> .
+  <span class="va">?drug</span>          <span class="kw">:interactsWith</span>    <span class="va">?interaction</span> .
+}</pre>
+    <div class="alert alert-success" style="margin:.5rem 0 0;">Result: Warfarin ↔ Aspirin (interaction detected)</div>
+  </div>
+
+  <div class="card card-sm" style="margin-bottom:.5rem;">
+    <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:.35rem;">Query 2 — find John's treating doctors</div>
+<pre style="margin:0;">SELECT <span class="va">?doctor ?specialty</span> WHERE {
+  <span class="st">:Patient_John</span>  <span class="kw">:treatedBy</span>       <span class="va">?doctor</span> .
+  <span class="va">?doctor</span>        <span class="kw">:hasSpecialty</span>    <span class="va">?specialty</span> .
+}</pre>
+    <div class="alert alert-success" style="margin:.5rem 0 0;">Result: Dr. Smith (Cardiology)</div>
+  </div>
+
+  <div class="card card-sm">
+    <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:.35rem;">Query 3 — all high-risk patients flagged by OWL rule</div>
+<pre style="margin:0;">SELECT <span class="va">?patient</span> WHERE {
+  <span class="va">?patient</span>  <span class="kw">a</span>            <span class="st">:HighRiskPatient</span> .
+  <span class="va">?patient</span>  <span class="kw">:locatedIn</span>   <span class="st">:Ward_3</span> .
+}</pre>
+    <div class="alert alert-success" style="margin:.5rem 0 0;">Result: 3 patients (inferred by OWL, never explicitly stored)</div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- LIVE DEMO -->
+  <h2><span class="pill tag-demo">Live demo</span> &nbsp;Prescribe a drug — step by step</h2>
+  <p>Dr. Smith wants to prescribe Aspirin to Patient John. Step through what happens at each layer of the knowledge graph.</p>
+
+  <div class="step-pills" id="demo-pills"></div>
+  <div class="demo-card" id="demo-card"></div>
+
+  <script>
+  const demoSteps = [
+    { label:"1. Start", bg:"#f9f8f6", titleColor:"#1a1a18",
+      phase:"Idle — prescription screen opened",
+      desc:"Dr. Smith opens the prescription screen for Patient John. The knowledge graph is ready and loaded with all patient data.",
+      code:null },
+    { label:"2. RDF triple", bg:"#e8f1fb", titleColor:"#0c3d6e",
+      phase:"RDF — new triple created",
+      desc:"Dr. Smith selects Aspirin. The system immediately creates a triple: Dr_Smith → prescribes → Aspirin. The fact enters the knowledge graph.",
+      code:":Dr_Smith :prescribes :Aspirin .\n:Aspirin  :prescribedFor :Patient_John ." },
+    { label:"3. Ontology", bg:"#faeeda", titleColor:"#633806",
+      phase:"Ontology — fact classified",
+      desc:"The graph checks: Aspirin is a Drug (defined in ontology). Patient_John is a Patient. The relationship 'prescribes' is valid between Doctor and Patient. All types confirmed.",
+      code:":Aspirin       rdf:type  :Drug .\n:Patient_John  rdf:type  :Patient .\n:Dr_Smith      rdf:type  :Doctor ." },
+    { label:"4. OWL fires", bg:"#fcebeb", titleColor:"#7a1c1c",
+      phase:"OWL — rule fires → DANGER",
+      desc:"Reasoner checks rules. Patient_John takes Warfarin. Warfarin interacts-with Aspirin. Dr. Smith is prescribing Aspirin. Rule condition met → DANGER alert generated automatically.",
+      code:"⚠ Rule fired: interactionAlert\nWarfarin ↔ Aspirin conflict\nPatient: Patient_John\nPrescriber: Dr_Smith" },
+    { label:"5. SPARQL", bg:"#eeedfe", titleColor:"#342f82",
+      phase:"SPARQL — context retrieved",
+      desc:"A query retrieves the full context: both drugs, the interaction type, patient INR levels, and the flagging doctor. The system composes a complete picture.",
+      code:"Aspirin × Warfarin → bleeding risk ↑↑\nLast INR: 3.2 (elevated)\nAlternative: Paracetamol (no interaction)" },
+    { label:"6. Result", bg:"#e2f5ee", titleColor:"#085041",
+      phase:"Outcome — prescription blocked",
+      desc:"Dr. Smith sees the danger alert before confirming. The prescription is held. Paracetamol is suggested as a safe alternative. The knowledge graph prevented a dangerous drug interaction.",
+      code:"✓ Prescription blocked\n✓ Alternative suggested: Paracetamol\n✓ Alert logged in patient record" },
+  ];
+
+  let demoActive = 0;
+  const pillsEl = document.getElementById('demo-pills');
+  const cardEl  = document.getElementById('demo-card');
+
+  function renderDemo() {
+    const s = demoSteps[demoActive];
+    pillsEl.innerHTML = demoSteps.map((st, i) =>
+      `<button class="step-pill${i===demoActive?' active':''}" onclick="setDemo(${i})">${st.label}</button>`
+    ).join('');
+    cardEl.style.background = s.bg;
+    cardEl.innerHTML = `
+      <div class="phase" style="color:${s.titleColor}">${s.phase}</div>
+      <div class="desc" style="color:${s.titleColor}88">${s.desc}</div>
+      ${s.code ? `<div class="demo-code" style="color:${s.titleColor}cc;background:rgba(0,0,0,.07)">${s.code.replace(/\n/g,'<br>')}</div>` : ''}
+      <div style="display:flex;justify-content:space-between;margin-top:1rem;">
+        <button class="btn" onclick="setDemo(${demoActive-1})" ${demoActive===0?'disabled':''}>← Back</button>
+        ${demoActive < demoSteps.length-1
+          ? `<button class="btn btn-primary" onclick="setDemo(${demoActive+1})">Next →</button>`
+          : `<span style="font-size:13px;color:${s.titleColor};font-weight:600;">Demo complete ✓</span>`}
+      </div>`;
+  }
+  function setDemo(i) { demoActive = i; renderDemo(); }
+  renderDemo();
+  </script>
+
+  <hr class="divider">
+
+  <!-- HOW TO EXPLAIN -->
+  <h2>How to explain this to anyone</h2>
+  <div class="card card-sm" style="margin-bottom:.625rem;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.4rem;">30 seconds — executive or non-technical</div>
+    <div style="font-size:13px;line-height:1.7;font-style:italic;">"A knowledge graph connects everything a hospital knows — patients, drugs, doctors, allergies — so the computer can reason across all of it at once. Instead of a doctor checking 5 systems and hoping they catch a dangerous interaction, the graph catches it automatically, in seconds, every time."</div>
+  </div>
+  <div class="card card-sm" style="margin-bottom:.625rem;">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.4rem;">3 minutes — technical colleague</div>
+    <div style="font-size:13px;line-height:1.7;font-style:italic;">"We model hospital data as RDF triples — Subject, Predicate, Object. Every fact is a connection. An ontology defines what categories of things exist and what relationships are legal. OWL rules encode clinical logic — things like drug interaction checks — and a reasoner applies those rules automatically across all patients. You query the result with SPARQL, which lets you follow chains of connections that would need complex JOINs in a relational database."</div>
+  </div>
+  <div class="card card-sm">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.4rem;">Deep dive — architect or engineer</div>
+    <div style="font-size:13px;line-height:1.7;font-style:italic;">"Data modelled in Turtle/RDF, ontology in OWL-DL with property restrictions and subclass hierarchies, reasoning via a forward-chaining inference engine like HermiT or Pellet. SPARQL 1.1 for queries. The clinical value is in the rules layer — encoding knowledge that was previously trapped in human expertise into formal logic the machine can apply at scale, to every patient simultaneously, without fatigue."</div>
+  </div>
+
+</div><!-- /page-usecase -->
+
+
+<!-- ═══════════════════════════════════════════════════
+     PAGE 2 — LEARNING CHECKLIST
+═══════════════════════════════════════════════════ -->
+<div id="page-checklist" class="page">
+
+  <h1>Learning checklist</h1>
+  <p style="margin-top:.5rem;">Track your progress from beginner to demo-ready. Tap any topic to read what to learn. Tick it when you understand it.</p>
+
+  <div class="level-tabs" id="level-tabs"></div>
+  <div id="progress-area"></div>
+  <div id="checklist-content"></div>
+
+  <script>
+  const TOPICS = {
+    beginner: {
+      label: "Beginner",
+      sub: "Understand the concepts",
+      weeks: "Week 1–2",
+      color: "#0f6e56",
+      fill: "#0f6e56",
+      goal: "You can explain RDF, Ontology, and OWL out loud in plain English and draw the hospital graph on a whiteboard.",
+      sections: [
+        {
+          title: "What is a knowledge graph?",
+          tag: "concept",
+          topics: [
+            { id:"b-kg-1", title:"Definition — nodes, edges, and meaning",
+              detail:"A knowledge graph is a network where things (nodes) are connected by relationships (edges). Unlike a database table, relationships are first-class — they carry meaning, not just links. A hospital KG has nodes for patients, drugs, doctors, and edges like 'takes', 'treats', 'interacts-with'." },
+            { id:"b-kg-2", title:"Why graphs beat tables for connected data",
+              detail:"Relational databases store facts in rows and columns. To connect two facts you write a JOIN. To connect 10 facts you write 9 JOINs. In a knowledge graph, following 10 connections is as fast as following 1. When the answer IS the connection (which drug interacts with which?), graphs win." },
+            { id:"b-kg-3", title:"Graph vs database — when to use which",
+              detail:"Use a database when you need to store and retrieve records efficiently (invoices, user accounts, transactions). Use a knowledge graph when the relationships between things ARE the question (what causes what, who is connected to whom, what is similar to what, what are the dependencies)." },
+            { id:"b-kg-4", title:"The hospital analogy — senior doctor's brain",
+              detail:"A senior doctor doesn't look up each fact separately. They hold a connected map: conditions, drugs, history, allergies, family background — all linked. A knowledge graph gives a computer that same connected map. The KG IS the doctor's contextual memory, made formal." },
+          ]
+        },
+        {
+          title: "RDF — the triple",
+          tag: "rdf",
+          topics: [
+            { id:"b-rdf-1", title:"Subject → Predicate → Object — the core pattern",
+              detail:"Every fact in RDF is exactly three parts. Subject: the thing the fact is about (:Patient_John). Predicate: the relationship or property (:takesMedication). Object: the value or connected thing (:Warfarin). This is called a triple. The entire knowledge graph is a collection of triples." },
+            { id:"b-rdf-2", title:"URIs — why everything has a web address",
+              detail:"In RDF, every Subject and Predicate is a URI (Uniform Resource Identifier) — a web address that makes the concept globally unique. :Patient_John in your hospital graph means exactly one person, not the John in another hospital's system. URIs allow graphs from different organisations to be safely merged." },
+            { id:"b-rdf-3", title:"Resources vs literals — nodes vs values",
+              detail:"The Object of a triple is either a resource (another node — like :Warfarin, which you can then say more about) or a literal (a plain value — like '38'^^xsd:integer or 'London'). Resources create connections. Literals store data. Example: :Patient_John :age '38'^^xsd:integer ." },
+            { id:"b-rdf-4", title:"Turtle syntax — how to write RDF",
+              detail:"Turtle is the most readable RDF format. Declare namespaces at top: @prefix : <http://hospital.org/> . Write triples ending in a period. Share the same subject with semicolons: :Patient_John :takesMedication :Warfarin ; :treatedBy :Dr_Smith . The 'a' shorthand means rdf:type — so :Patient_John a :Patient . means John is of type Patient." },
+            { id:"b-rdf-5", title:"Drawing the graph — circles and arrows",
+              detail:"Practise drawing your triples. Patient_John = circle. Warfarin = circle. Arrow from Patient_John to Warfarin labelled 'takesMedication'. Another arrow from Warfarin to Aspirin labelled 'interactsWith'. This picture IS the knowledge graph. If you can draw it, you understand it." },
+          ]
+        },
+        {
+          title: "Ontology — the vocabulary",
+          tag: "onto",
+          topics: [
+            { id:"b-on-1", title:"What an ontology is — the dictionary + rulebook",
+              detail:"An ontology defines: what kinds of things exist (classes like Patient, Drug, Doctor), what properties they can have (:takesMedication, :hasAllergy), and what relationships are allowed between them. Without an ontology, your triples are just data. With one, they have meaning the computer can reason with." },
+            { id:"b-on-2", title:"Classes and instances",
+              detail:"A class is a category — Patient, Drug, Doctor, Alert. An instance is one specific thing in that category — Patient_John is an instance of Patient. Aspirin is an instance of Drug. You define the class once with its rules and properties. Every instance automatically inherits all of them." },
+            { id:"b-on-3", title:"Subclass hierarchy — rdfs:subClassOf",
+              detail:"Classes nest inside each other. Drug rdfs:subClassOf Substance. Substance rdfs:subClassOf MedicalEntity. This means: anything true about Substance is automatically true about Drug. Anything true about Drug is automatically true about every specific drug instance. Define once, inherit everywhere. This is why ontologies are powerful." },
+            { id:"b-on-4", title:"Properties — domain and range",
+              detail:"Properties define what relationships are allowed. :takesMedication has domain :Patient (only patients can take medication) and range :Drug (medication must be a Drug). If you write :Aspirin :takesMedication :Patient_John you are violating the domain restriction — the reasoner will flag it as an error." },
+            { id:"b-on-5", title:"RDFS — the basic ontology language",
+              detail:"RDFS (RDF Schema) is the minimum ontology language. It gives you: rdfs:Class (define a class), rdfs:subClassOf (define hierarchy), rdfs:Property (define a property), rdfs:domain (restrict who can use a property), rdfs:range (restrict what it points to), rdfs:comment (add a description). These six tools are enough to model most domains." },
+          ]
+        },
+        {
+          title: "OWL — the rules layer",
+          tag: "owl",
+          topics: [
+            { id:"b-ow-1", title:"What OWL adds over RDFS",
+              detail:"RDFS defines classes and properties. OWL adds logic. With OWL you can say: a property is symmetric (if A interacts-with B, then B interacts-with A automatically). A class is the intersection of two others. If these facts exist, infer this new fact. OWL turns your ontology from a schema into an expert system." },
+            { id:"b-ow-2", title:"The reasoner — what it is and what it does",
+              detail:"A reasoner is software that reads your OWL ontology and your RDF data, applies all the rules, and generates new triples (inferences). You don't run rules manually. You load your data, start the reasoner, and it adds all conclusions to the graph. Tools: HermiT, Pellet, FaCT++. Protégé has HermiT built in." },
+            { id:"b-ow-3", title:"IF/THEN thinking — your first OWL rule",
+              detail:"Think in IF/THEN. IF Patient takes Drug A AND Drug A interacts-with Drug B AND Doctor prescribes Drug B THEN generate an Alert. The reasoner applies this to every patient, every drug combination, automatically. You write the rule once. It runs forever without human intervention." },
+            { id:"b-ow-4", title:"owl:SymmetricProperty — one fact, both directions",
+              detail:"If :interactsWith is a SymmetricProperty, then writing Warfarin :interactsWith Aspirin automatically means Aspirin :interactsWith Warfarin too. You only need to state the fact once. The reasoner infers the reverse direction. In medicine, drug interactions always go both ways — symmetric property captures this perfectly." },
+            { id:"b-ow-5", title:"Consistency checking — catching mistakes automatically",
+              detail:"OWL enforces your ontology rules. If you said a Patient can have exactly one blood type (owl:FunctionalProperty) and your data gives John two blood types — the reasoner flags it as inconsistent immediately. No custom validation code needed. The ontology IS the validator." },
+          ]
+        }
+      ]
+    },
+
+    intermediate: {
+      label: "Intermediate",
+      sub: "Build it yourself",
+      weeks: "Week 3–5",
+      color: "#185fa5",
+      fill: "#185fa5",
+      goal: "You have a working Turtle file, a real OWL ontology in Protégé, and you can run SPARQL queries that return correct results.",
+      sections: [
+        {
+          title: "Turtle syntax in depth",
+          tag: "rdf",
+          topics: [
+            { id:"i-tu-1", title:"Namespaces and @prefix declarations",
+              detail:"Every Turtle file starts with prefix declarations. @prefix : <http://hospital.org/> . means the colon shorthand maps to your base URI. @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> . and @prefix owl: <http://www.w3.org/2002/07/owl#> . are always needed. Declare all prefixes before your first triple." },
+            { id:"i-tu-2", title:"Blank nodes — anonymous nodes",
+              detail:"Sometimes a thing doesn't need a URI. Use square brackets: :Patient_John :hasAddress [ :city 'London' ; :postcode 'SW1' ] . The brackets create an anonymous (blank) node. It exists in the graph but has no URI. Use sparingly — named nodes are easier to query and update later." },
+            { id:"i-tu-3", title:"xsd data types for literals",
+              detail:"Typed literals make data precise. '38'^^xsd:integer is a number. '1985-03-12'^^xsd:date is a date the reasoner can compare. '72.5'^^xsd:float is a decimal. 'John'@en is a string with language tag. Always type your literals — untyped strings can't be compared in SPARQL FILTER expressions." },
+            { id:"i-tu-4", title:"rdf:type shorthand — the 'a' keyword",
+              detail:"rdf:type is used so often it has a one-letter shorthand: a. :Patient_John a :Patient . is identical to :Patient_John rdf:type :Patient . You will write 'a' hundreds of times. Get comfortable with it — it is the most frequent triple in any knowledge graph." },
+            { id:"i-tu-5", title:"Writing a complete Turtle file — structure and best practices",
+              detail:"Structure: 1) Prefix declarations. 2) Ontology header (owl:Ontology). 3) Class definitions. 4) Property definitions. 5) Instance data. Keep ontology and instance data in separate files for large projects. Use rdfs:comment on every class and property. Use meaningful URIs — :Patient_John_DOB_1985 not :P001." },
+          ]
+        },
+        {
+          title: "OWL ontology design",
+          tag: "owl",
+          topics: [
+            { id:"i-ow-1", title:"owl:equivalentClass — merging vocabularies",
+              detail:"Two ontologies may use different names for the same thing. Hospital A says :Medication. Hospital B says :Drug. Write: :Drug owl:equivalentClass :Medication . The reasoner now treats them as identical. Every instance of :Medication is automatically also an instance of :Drug and vice versa. Essential for data integration." },
+            { id:"i-ow-2", title:"owl:disjointWith — classes that cannot overlap",
+              detail:":Patient owl:disjointWith :Drug . means nothing can be both a Patient and a Drug at the same time. If your data somehow classifies Patient_John as a Drug, the reasoner flags it as inconsistent immediately. Use disjointWith for any pair of classes that should never share instances." },
+            { id:"i-ow-3", title:"Property restrictions — allValuesFrom and someValuesFrom",
+              detail:"owl:allValuesFrom restricts what a property can point to for a given class. :Prescription owl:onProperty :prescribedDrug ; owl:allValuesFrom :Drug . means every drug prescribed MUST be a Drug. owl:someValuesFrom means at least one value must be of that type. These constraints are checked by the reasoner automatically." },
+            { id:"i-ow-4", title:"Cardinality — how many values a property can have",
+              detail:"owl:exactCardinality 1 means exactly one value. owl:minCardinality 1 means at least one. owl:maxCardinality 3 means no more than three. A Patient must have exactly one blood type: :Patient owl:onProperty :bloodType ; owl:exactCardinality 1 . The reasoner enforces this on every patient instance." },
+            { id:"i-ow-5", title:"SWRL rules — writing IF/THEN in OWL",
+              detail:"SWRL (Semantic Web Rule Language) is the standard for IF/THEN rules in OWL. Syntax: Patient(?p) ^ takesMedication(?p, ?d1) ^ interactsWith(?d1, ?d2) ^ prescribes(?doc, ?d2) → Alert(?a) ^ involves(?a, ?p). Read it left to right: if all conditions hold, then the conclusions are inferred. Protégé has a SWRL editor built in." },
+          ]
+        },
+        {
+          title: "SPARQL queries",
+          tag: "sparql",
+          topics: [
+            { id:"i-sp-1", title:"SELECT — pattern matching to retrieve data",
+              detail:"SELECT ?patient ?drug WHERE { ?patient a :Patient . ?patient :takesMedication ?drug . ?drug :interactsWith ?other . } Variables start with ?. The WHERE block describes the pattern to find. The query returns every patient-drug pair where the drug interacts with something. No JOINs — just pattern matching." },
+            { id:"i-sp-2", title:"FILTER — narrowing results with conditions",
+              detail:"FILTER(?age > 65) keeps only elderly patients. FILTER(STR(?name) = 'John') matches by name. FILTER NOT EXISTS { ?p :hasConsent true } finds patients without consent records. FILTER goes inside the WHERE block. You can combine multiple FILTERs. Use LANG(?label) = 'en' to filter by language tag." },
+            { id:"i-sp-3", title:"OPTIONAL — including data that may not exist",
+              detail:"OPTIONAL { ?patient :hasAllergy ?allergy } returns the patient even if they have no allergy recorded. Without OPTIONAL, patients with no allergies are excluded from results entirely. Think of it as a LEFT JOIN in SQL. Always use OPTIONAL when a property might be absent for some instances." },
+            { id:"i-sp-4", title:"ASK — yes or no queries",
+              detail:"ASK { :Patient_John :takesMedication :Warfarin . :Warfarin :interactsWith :Aspirin . } Returns true or false. No SELECT needed. Use ASK for validation queries: 'does this interaction exist?', 'is this patient a high risk case?'. Fast and simple — perfect for rule-checking before an action." },
+            { id:"i-sp-5", title:"CONSTRUCT — building new triples from query results",
+              detail:"CONSTRUCT { ?patient a :HighRiskPatient } WHERE { ?patient :takesMedication ?d1, ?d2, ?d3, ?d4, ?d5 . FILTER(?d1 != ?d2) } Creates new RDF triples from query results. Use this to materialise inferences — run the CONSTRUCT query and insert the results back into the graph. Useful when you cannot run a full OWL reasoner in production." },
+          ]
+        },
+        {
+          title: "Tools — Protégé, Jena, GraphDB",
+          tag: "concept",
+          topics: [
+            { id:"i-to-1", title:"Installing and opening Protégé",
+              detail:"Download Protégé from protege.stanford.edu — free, runs on Mac/Windows/Linux. Open it. Create a new ontology (File → New). Set the base URI to http://hospital.org/. Create your classes in the Classes tab (Patient, Drug, Doctor, Alert). Create properties in the Object Properties tab. Add instances in the Individuals tab. Your first session takes about 2 hours." },
+            { id:"i-to-2", title:"Running the HermiT reasoner in Protégé",
+              detail:"In Protégé: Reasoner menu → HermiT → Start reasoner (or press Ctrl+R). The reasoner runs and adds inferred facts to the graph. Check the Inferred class hierarchy panel on the right — new subclasses appear that the reasoner derived from your OWL rules. Yellow highlights show inferred facts. If your rules are correct, HighRiskPatient will appear with the right patients under it." },
+            { id:"i-to-3", title:"Running SPARQL in Apache Jena",
+              detail:"Apache Jena is a Java library. Add it to your project (Maven: org.apache.jena:jena-core). Load your Turtle file: Model model = ModelFactory.createDefaultModel(); model.read('hospital.ttl', 'TURTLE'); Run a query: String q = 'SELECT ?p WHERE { ?p a :Patient }'; QueryExecution qe = QueryExecutionFactory.create(q, model); ResultSet rs = qe.execSelect();" },
+            { id:"i-to-4", title:"GraphDB — visual graph browser",
+              detail:"GraphDB (free tier from Ontotext) is the easiest way to get started with a real graph database. Download, create a repository, upload your Turtle file, and use the built-in SPARQL editor and visual graph browser. You can see your nodes and edges rendered as a force-directed graph. Go to graphdb.ontotext.com and download the free edition." },
+            { id:"i-to-5", title:"Apache Fuseki — SPARQL endpoint",
+              detail:"Fuseki turns your Turtle file into a queryable web service. Download from jena.apache.org. Run: ./fuseki-server --file=hospital.ttl /hospital. Your graph is now available at http://localhost:3030/hospital/sparql. Query it from any browser or HTTP client. This is what a production SPARQL endpoint looks like — your KG as a service." },
+          ]
+        }
+      ]
+    },
+
+    advanced: {
+      label: "Advanced",
+      sub: "Apply to your industry",
+      weeks: "Week 6–10",
+      color: "#854f0b",
+      fill: "#854f0b",
+      goal: "You have a running demo that maps the hospital KG pattern to your oil/manufacturing use case. You can present it confidently to a lead architect.",
+      sections: [
+        {
+          title: "Ontology design patterns",
+          tag: "onto",
+          topics: [
+            { id:"a-dp-1", title:"n-ary relationships — events with multiple participants",
+              detail:"RDF triples are binary — one subject, one object. But a prescription has 4 facts: who prescribed, to whom, what drug, at what dosage. Reify the event as a node: :Prescription_001 a :Prescription ; :prescribedBy :Dr_Smith ; :prescribedTo :Patient_John ; :drug :Aspirin ; :date '2024-01-15' . The prescription itself becomes the connecting node." },
+            { id:"a-dp-2", title:"Modular ontology design — split into files",
+              detail:"Don't put everything in one file. Split by domain: patient-module.ttl, drug-module.ttl, alert-module.ttl. Each imports what it needs with owl:imports <drug-module.ttl>. This makes ontologies maintainable (edit one module without breaking others), testable (unit test each module), and reusable (share the drug module across hospital and manufacturing systems)." },
+            { id:"a-dp-3", title:"Reusing existing ontologies — SNOMED, RxNorm, FHIR",
+              detail:"Before designing, check existing ontologies. SNOMED CT for clinical terms (diseases, procedures, anatomy). RxNorm for drug names and interactions. HL7 FHIR ontology for patient data structures. PROV-O for provenance tracking. Reusing these means your graph connects to the wider linked data ecosystem automatically and passes regulatory compliance checks more easily." },
+            { id:"a-dp-4", title:"Temporal modelling — facts that change over time",
+              detail:"Facts change. A patient's medication list today differs from last year. Use named graphs with timestamps: GRAPH :MedRecord_2024_01 { :Patient_John :takesMedication :Warfarin } Then query: 'what was John taking in January?' becomes a temporal graph query. Alternatively use RDF-star (W3C 2023) which lets you annotate individual triples with metadata like timestamps." },
+            { id:"a-dp-5", title:"Upper ontologies — BFO and DOLCE for interoperability",
+              detail:"Upper ontologies define the most abstract concepts: entity, process, quality, role. BFO (Basic Formal Ontology) is used across biomedical science. Your Patient sits under BFO:MaterialEntity. Your Prescription sits under BFO:Process. Using an upper ontology makes your graph interoperable with thousands of others that share the same foundation — essential for cross-institution data sharing." },
+          ]
+        },
+        {
+          title: "Data integration",
+          tag: "concept",
+          topics: [
+            { id:"a-in-1", title:"R2RML — mapping SQL databases to RDF",
+              detail:"Most hospital data lives in SQL. R2RML (W3C standard) maps relational tables to RDF triples. Define a mapping: PATIENTS table, PATIENT_ID column → subject URI, MEDICATION column → :takesMedication predicate. Tools: RMLMapper, Morph-KGC. Your SQL data becomes triples automatically, keeping the source system unchanged." },
+            { id:"a-in-2", title:"owl:sameAs — linking to external datasets",
+              detail:":Aspirin owl:sameAs <http://dbpedia.org/resource/Aspirin> . Your Aspirin node is now connected to DBpedia, Wikidata, and PubChem automatically. Any query about Aspirin can pull in external data — clinical trial results, molecular structure, pricing — without storing any of it yourself. This is linked open data in practice." },
+            { id:"a-in-3", title:"Named graphs — provenance and data source tracking",
+              detail:"A named graph is a set of triples with its own URI. GRAPH :LabSystem { :Patient_John :hasBiomarker :Troponin } GRAPH :EHRSystem { :Patient_John :age '38' } Now query: 'which system does this fact come from?' or 'show me only facts from the lab system'. Essential for audit trails, trust levels, and regulatory compliance." },
+            { id:"a-in-4", title:"SPARQL federation — querying across multiple endpoints",
+              detail:"SERVICE keyword queries a remote endpoint inside your own query. SELECT ?drug ?trial WHERE { :Patient_John :takesMedication ?drug . SERVICE <http://clinicaltrials.gov/sparql> { ?trial :studyDrug ?drug } } Your local graph joins with an external clinical trials database in one query. No ETL pipeline needed — the data stays in its source system." },
+          ]
+        },
+        {
+          title: "Industrial IoT — mapping to oil and manufacturing",
+          tag: "concept",
+          topics: [
+            { id:"a-iot-1", title:"Transfer: Patient → Equipment, Drug → Component",
+              detail:"Every concept transfers directly. Patient → Equipment. Drug → Component or process fluid. Drug interaction → part incompatibility or chemical reaction risk. Doctor → Maintenance engineer. Prescription alert → Maintenance work order. OWL rule → sensor threshold rule. The exact same RDF + Ontology + OWL pattern works in both domains." },
+            { id:"a-iot-2", title:"SSN/SOSA — the W3C sensor ontology",
+              detail:"W3C SSN (Semantic Sensor Network) / SOSA ontology defines how sensors work. sosa:Sensor (your IoT device), sosa:Observation (each reading), sosa:hasSimpleResult (the value), sosa:observedProperty (what it measures). Your temperature sensor: :Sensor_T01 a sosa:Sensor ; sosa:observes :Temperature_PipelineA3 . Each reading becomes a structured, queryable triple." },
+            { id:"a-iot-3", title:"ISO 15926 — the oil and gas standard ontology",
+              detail:"ISO 15926 is the RDF ontology standard for oil and gas equipment and processes. Every pump, valve, sensor, pipeline section, and maintenance event has a standardised class. Start here instead of designing from scratch. Using ISO 15926 means your graph speaks the same language as every other oil company using the standard — and satisfies regulatory data requirements." },
+            { id:"a-iot-4", title:"Equipment hierarchy — plant, unit, system, component",
+              detail:"Model your asset hierarchy: Plant → Unit → System → Equipment → Component. Use :isPartOf for instance hierarchy. Use rdfs:subClassOf for type hierarchy. Then: if a Component fails, traverse :isPartOf upward to find the affected Unit. If a Unit is critical, traverse downward to find all Components needing inspection. OWL rule: IF Component hasStatus :Failed AND Component isPartOf Unit THEN Unit hasStatus :Impacted." },
+            { id:"a-iot-5", title:"FMEA as OWL — failure mode encoding",
+              detail:"FMEA (Failure Mode and Effects Analysis) maps perfectly to OWL. :FailureMode class with properties :affectsComponent, :detectedBy (links to Sensor), :severity. OWL rule: IF Sensor reads above threshold AND Sensor :detects FailureMode AND FailureMode :affects Component THEN Component hasStatus :AtRisk. This is the drug interaction rule in industrial form." },
+          ]
+        },
+        {
+          title: "Demo — ready to present",
+          tag: "demo",
+          topics: [
+            { id:"a-dm-1", title:"Minimum viable demo — what you need",
+              detail:"You need exactly: one Turtle file (10–20 triples), one OWL ontology file (3–5 classes, 2 rules), one SPARQL query that shows inference. Load both in GraphDB or Protégé. Run the reasoner. Run the query. Show the result. Total demo time: 5 minutes. That is enough to prove the concept completely to any technical audience." },
+            { id:"a-dm-2", title:"The five-step narrative arc",
+              detail:"1) Show the raw data problem (numbers with no context). 2) Add RDF — now numbers have connected meaning. 3) Add ontology — now context has rules. 4) Fire OWL reasoner — now the system infers. 5) Run SPARQL — now you can ask questions across the whole graph. This arc IS your demo script, your slide structure, and your explanation framework." },
+            { id:"a-dm-3", title:"Protégé walkthrough — a 3-minute script",
+              detail:"Open Protégé (30s). Show class hierarchy (30s). Show two instances with properties (30s). Start HermiT reasoner — watch inferred classes appear (30s). Open SPARQL tab, run the interaction query (30s). Show result (30s). Total: 3 minutes. Practise until it is smooth and automatic. The demo should feel like you are showing off something that just works, not explaining how it works." },
+            { id:"a-dm-4", title:"Three questions an architect will ask — and how to answer",
+              detail:"Q1: 'How does this scale to millions of sensors?' — Graph databases like Stardog, AWS Neptune, and GraphDB Enterprise handle billions of triples. The same Turtle and OWL files work at any scale. Q2: 'How does new data get in?' — R2RML mappings or Kafka pipelines convert streaming data to triples automatically. Q3: 'How is this different from a database?' — A database stores data. This stores meaning and reasons across it automatically." },
+            { id:"a-dm-5", title:"The one diagram that explains everything",
+              detail:"Draw this on one slide: three circles labelled Patient_John, Warfarin, Aspirin. Arrows between them: takesMedication, interactsWith. One box labelled 'OWL rule: IF interaction exists THEN alert'. One arrow from the box labelled 'INFERRED: Alert generated'. That diagram IS the knowledge graph. Everything else in your presentation is just supporting detail for this one picture." },
+          ]
+        }
+      ]
+    }
+  };
+
+  // Storage
+  function getChecked() {
+    try { return JSON.parse(localStorage.getItem('kg_checked') || '{}'); } catch(e) { return {}; }
+  }
+  function saveChecked(obj) {
+    try { localStorage.setItem('kg_checked', JSON.stringify(obj)); } catch(e) {}
+  }
+
+  let checked = getChecked();
+  let activeLevel = 'beginner';
+  let openSections = {};
+  let expandedTopics = {};
+
+  function totalFor(level) {
+    return TOPICS[level].sections.reduce((s, sec) => s + sec.topics.length, 0);
+  }
+  function doneFor(level) {
+    return TOPICS[level].sections.reduce((s, sec) =>
+      s + sec.topics.filter(t => checked[t.id]).length, 0);
+  }
+  function pct(level) {
+    const t = totalFor(level);
+    return t ? Math.round(doneFor(level) / t * 100) : 0;
+  }
+
+  function renderLevelTabs() {
+    const el = document.getElementById('level-tabs');
+    el.innerHTML = Object.keys(TOPICS).map(key => {
+      const L = TOPICS[key];
+      const p = pct(key);
+      return `<button class="level-tab${key===activeLevel?' active':''}" onclick="setLevel('${key}')">
+        <div class="lt-label">${L.label}</div>
+        <div class="lt-sub">${L.sub} · ${L.weeks}</div>
+        <div class="lt-prog"><div class="lt-fill" style="width:${p}%;background:${L.color}"></div></div>
+      </button>`;
+    }).join('');
+  }
+
+  function renderProgress() {
+    const L = TOPICS[activeLevel];
+    const done = doneFor(activeLevel);
+    const total = totalFor(activeLevel);
+    const p = pct(activeLevel);
+    document.getElementById('progress-area').innerHTML = `
+      <div class="progress-summary"><strong>${done} of ${total}</strong> topics completed — ${p}%</div>
+      <div class="progress-bar-lg"><div class="fill" style="width:${p}%;background:${L.color}"></div></div>
+      <div class="alert" style="background:${L.color}18;color:${L.color};border-left:3px solid ${L.color};margin-bottom:1rem;">
+        <strong>Goal:</strong> ${L.goal}
+      </div>`;
+  }
+
+  function tagClass(tag) {
+    return { rdf:'tag-rdf', owl:'tag-owl', onto:'tag-onto', sparql:'tag-sparql', demo:'tag-demo', concept:'tag-concept' }[tag] || 'tag-concept';
+  }
+
+  function renderChecklist() {
+    const L = TOPICS[activeLevel];
+    const el = document.getElementById('checklist-content');
+    el.innerHTML = L.sections.map((sec, si) => {
+      const secDone = sec.topics.filter(t => checked[t.id]).length;
+      const isOpen = openSections[`${activeLevel}-${si}`] !== false; // default open
+      return `<div class="section-block">
+        <div class="section-head${isOpen?' open':''}" onclick="toggleSection('${activeLevel}-${si}', ${si})">
+          <span class="pill ${tagClass(sec.tag)}">${sec.tag}</span>
+          <span class="sh-title">${sec.title}</span>
+          <span class="sh-count">${secDone}/${sec.topics.length}</span>
+          <span class="sh-chevron">▶</span>
+        </div>
+        ${isOpen ? `<div class="section-items">
+          ${sec.topics.map((t, ti) => {
+            const isChecked = !!checked[t.id];
+            const isExpanded = !!expandedTopics[t.id];
+            return `<div class="topic-row${isExpanded?' expanded':''}" onclick="toggleTopic('${t.id}', ${si}, ${ti})">
+              <div class="topic-check${isChecked?' checked':''}" onclick="event.stopPropagation();toggleCheck('${t.id}')">
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4l2.5 2.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="topic-body">
+                <div class="topic-title${isChecked?' checked':''}">${t.title}</div>
+                <div class="topic-detail">${t.detail}</div>
+              </div>
+              <div class="topic-tag"><span style="font-size:11px;color:var(--faint)">${isExpanded?'▲':'▼'}</span></div>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function render() {
+    renderLevelTabs();
+    renderProgress();
+    renderChecklist();
+  }
+
+  window.setLevel = function(key) { activeLevel = key; render(); };
+  window.toggleSection = function(key) {
+    openSections[key] = openSections[key] === false ? true : false;
+    render();
+  };
+  window.toggleTopic = function(id) {
+    expandedTopics[id] = !expandedTopics[id];
+    render();
+  };
+  window.toggleCheck = function(id) {
+    checked[id] = !checked[id];
+    saveChecked(checked);
+    render();
+  };
+
+  render();
+  </script>
+
+  <div class="btn-row" style="margin-top:1.5rem;">
+    <button class="btn" onclick="clearAll()">Reset all progress</button>
+  </div>
+  <script>
+  window.clearAll = function() {
+    if(confirm('Reset all progress? This cannot be undone.')) {
+      checked = {};
+      saveChecked(checked);
+      render();
+    }
+  };
+  </script>
+
+</div><!-- /page-checklist -->
+
+<footer>
+  Knowledge Graph Learning Hub · Built with RDF, Ontology & OWL concepts · Progress saved in your browser
+</footer>
+
+<script>
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+
+</body>
+</html>
